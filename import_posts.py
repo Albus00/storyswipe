@@ -40,8 +40,9 @@ def get_post(subreddit, listing):
   # Extract the title and selftext of the third post
   title = res.json()['data']['children'][2]['data']['title']
   selftext = res.json()['data']['children'][2]['data']['selftext']
+  url = res.json()['data']['children'][2]['data']['url']
 
-  return title, selftext
+  return title, selftext, url
 
 def save_json(title, selftext):
   # Save the response as JSON

@@ -11,8 +11,8 @@ def filer_shortening(text):
     text = text.replace(shortening, full_form)
   return text
 
-# Example usage
-text = "This is a sentence with fuck and shit and bullshit for AITA."
-filtered_text = filter_swear_words(text)
-filtered_text = filer_shortening(filtered_text)
-print(filtered_text)
+# # Example usage
+# text = "This is a sentence with fuck and shit and bullshit for AITA."
+# filtered_text = filter_swear_words(text)
+# filtered_text = filer_shortening(filtered_text)
+# print(filtered_text)

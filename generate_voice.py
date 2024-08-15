@@ -2,13 +2,20 @@ from pathlib import Path
 from openai import OpenAI
 
 
-def generate_voice(__file__):
+def text_to_speech(__file__, manuscript, voice):
   client = OpenAI()
+
+  # Make sure the voice is valid
+  if voice not in ["alloy", "echo", "fable", "onyx", "nova", "shimmer"]:
+    raise ValueError("Invalid voice")
+
+  # Combine the title and selftext
+  manuscript = manuscript[0] + " " + manuscript[1]
 
   speech_file_path = Path(__file__).parent / "speech.mp3"
   response = client.audio.speech.create(
     model="tts-1",
-    voice="alloy",
-    input="Today is a wonderful day to build something people love!"
+    voice=voice,
+    input=manuscript
   )
-  response.with_streaming_response.method(speech_file_path)
+  response.stream_to_file(speech_file_path)
