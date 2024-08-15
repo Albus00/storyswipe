@@ -7,10 +7,9 @@ def combine_sound_and_video(video_path, audio_path, output_path):
   video = video.set_audio(audio)
   video.write_videofile(output_path, codec='libx264', audio_codec='aac')
 
-def add_subtitles(video_path, subtitles, output_path):
-  video = VideoFileClip(video_path)
-  video = video.set_audio(audio)
-  video.write_videofile(output_path, codec='libx264', audio_codec='aac')
+def add_subtitles(video_path, output_path):
+  # TODO: Add subtitles to a video
+  pass
 
 # Example usage
 video_path = './stock videos/minecraft.mp4'
