@@ -11,6 +11,8 @@ post = get_post(SUBREDDIT, LISTING)
 
 print(post[2])
 
+# TODO: Add screenshots using playwright
+
 if CLEAN_POST:
     post = filter_swear_words(post[0]), filter_swear_words(post[1])
 
