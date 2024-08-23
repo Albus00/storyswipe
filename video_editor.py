@@ -1,83 +1,67 @@
-import time
-import math
-# import ffmpeg
+import random
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 from moviepy.video.tools.subtitles import SubtitlesClip
-from faster_whisper import WhisperModel
+from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.config import change_settings
-
-SUBTITLE_FILE_NAME = "subtitles.srt"
+import os
 
 # Change this to the path of your ImageMagick installation (autodetection doesn't work)
 change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
 
-def combine_sound_and_video(video_path, audio_path, output_path):
-  video = VideoFileClip(video_path)
-  audio = AudioFileClip(audio_path)
+def get_footage(date_str):
+    def nr_of_clips(folder_path):
+        file_count = len([f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))])
+        return file_count
+    
+    def get_speech_length():
+        audio = AudioFileClip(f"./output/speech/speech_{date_str}.mp3")
+        speech_length = audio.duration
+        return speech_length
+    
+    def get_random_clip():
+        num_clips = nr_of_clips('./stock videos')
+        if num_clips > 1:
+            random_clip = f"minecraft{random.randint(1, num_clips)}.mp4"
+        elif num_clips == 1:
+            random_clip = "minecraft1.mp4"
+        else:
+            raise ValueError("No stock footage found")
+            
+        return random_clip
+    
+    def get_random_time(stock_length, clip_length):
+        print(f"Stock length: {stock_length}, clip length: {clip_length}")
+        start_time = random.randint(0, int(stock_length - clip_length))
+        end_time = start_time + clip_length
+        return start_time, end_time
 
-  video = video.set_audio(audio)
-  video.write_videofile(output_path, codec='libx264', audio_codec='aac')
+    random_clip = get_random_clip()
+    print(f"Using stock footage: {random_clip}")
+    random_clip_length = VideoFileClip(f"./stock videos/{random_clip}").duration
+    start_time, end_time = get_random_time(random_clip_length, get_speech_length())
 
-def add_subtitles(input_path, audio_path, output_path):
-  # Followed this guide: https://www.digitalocean.com/community/tutorials/how-to-generate-and-add-subtitles-to-videos-using-python-openai-whisper-and-ffmpeg
-  # Used this to get faster whisper working: https://stackoverflow.com/questions/66355477/could-not-load-library-cudnn-ops-infer64-8-dll-error-code-126-please-make-sure
-  
-  segments = transcribe(audio_path)
-  print("Transcription - complete")
-  generate_subtitle_file(segments)
-  print("Subtitle file - created")
+    # TODO: Resize video to phone aspect ratio
+    # .resize(width=1080/(16/9))
 
-#   render_subtitle_to_video(input_path, output_path)
+    ffmpeg_extract_subclip(f"./stock videos/{random_clip}", start_time, end_time, targetname="./output/temp/clip.mp4")
+    return VideoFileClip("./output/temp/clip.mp4")
 
-
-def transcribe(audio):
-    model = WhisperModel("small", device="cuda", compute_type="float32")
-    segments, _ = model.transcribe(audio, language='en')
-    segments = list(segments)
-    return segments
-
-def format_time(seconds):
-    hours = math.floor(seconds / 3600)
-    seconds %= 3600
-    minutes = math.floor(seconds / 60)
-    seconds %= 60
-    milliseconds = round((seconds - math.floor(seconds)) * 1000)
-    seconds = math.floor(seconds)
-    formatted_time = f"{hours:02d}:{minutes:02d}:{seconds:01d},{milliseconds:03d}"
-
-    return formatted_time
-
-def generate_subtitle_file(segments, input_video_name="video"):
-
-    text = ""
-    for index, segment in enumerate(segments):
-        segment_start = format_time(segment.start)
-        segment_end = format_time(segment.end)
-        text += f"{str(index+1)} \n"
-        text += f"{segment_start} --> {segment_end} \n"
-        text += f"{segment.text} \n"
-        text += "\n"
-
-    # Save subtitle file
-    with open(SUBTITLE_FILE_NAME, "w") as f:
-        f.write(text)
-
-def render_subtitle_to_video(input_path, output_path):
+def render(date_str):
     # https://superuser.com/questions/874598/creating-video-containing-animated-text-using-ffmpeg-alone/874697#874697
 
-    generator = lambda txt: TextClip(txt, font='Georgia-Regular', fontsize=24, color='white')
-    video_clip = VideoFileClip(input_path)
-    subtitles_clip = SubtitlesClip(SUBTITLE_FILE_NAME, generator)
-    # for (_, txt) in subtitles_clip:
-    #     print(txt)
-    print(subtitles_clip.duration)
-    # text_clips = [TextClip(txt, fontsize=24, color='white').set_position('bottom') for (_, txt) in subtitles_clip]
+    # Combine stock video and speech audio
+    video_clip = get_footage(date_str)
+    audio = AudioFileClip(f"./output/speech/speech_{date_str}.mp3")
+    video_clip = video_clip.set_audio(audio)
+
+    # Generate subtitles clip
+    generator = lambda txt: TextClip(txt, font='Noto Sans Bold', fontsize=50, color='white', method='caption', align='West', size=(500, None), stroke_color='black')
+    subtitles_clip = SubtitlesClip(f"./output/subtitles/sub_{date_str}.srt", generator).set_position(('center','center'))
+    
+    # Combine video and subtitles and render
     final_clip = CompositeVideoClip([video_clip, subtitles_clip])
     final_clip.duration = video_clip.duration
-    final_clip.write_videofile(output_path, codec='libx264', audio_codec='aac')
+    final_clip.write_videofile(f"./output/final/final_{date_str}.mp4", codec='libx264', audio_codec='aac')
 
-    # video_input_stream = ffmpeg.input(input_video)
-    # stream = ffmpeg.output(video_input_stream, output_path, vf=f"subtitles={subtitle_file}")
-    # ffmpeg.run(stream, overwrite_output=True, cmd=r'c:\FFmpeg\bin\ffmpeg.exe')
-
-add_subtitles('./output/clean/tiktok.mp4', './speech.mp3', './output/final/tiktok.mp4')
+# combine_sound_and_video('./stock videos/minecraft1.mp4', './speech.mp3', './output/final/tiktok.mp4')
+# add_subtitles('./stock videos/minecraft1.mp4', './speech.mp3', './output/final/tiktok.mp4')
