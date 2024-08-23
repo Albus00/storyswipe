@@ -1,3 +1,4 @@
+import os
 import datetime
 import random
 from import_posts import get_post
@@ -7,14 +8,27 @@ from subtitle import generate_subtitles
 from video_editor import render
 
 FIXED_ID = 1
+SKIP_TTS = True
 
 SUBREDDIT = "AmITheAsshole"
 LISTING = "hot"
 VOICE = "echo"
 CLEAN_POST = False
 
+def setup():
+    # Create the output folders if they don't exist
+    os.makedirs("./output/parts", exist_ok=True)
+    os.makedirs("./output/speech", exist_ok=True)
+    os.makedirs("./output/temp", exist_ok=True)
+    os.makedirs("./output/subtitles", exist_ok=True)
+    print("Setup complete")
+
+
+# Setup the output folders
+setup()
+
 post = get_post(SUBREDDIT, LISTING)
-print(f"Starting to generate video for post: {post[0]}")
+print(f"\nStarting to generate video for post: {post[0]}\n")
 
 # TODO: Add screenshots using playwright
 
@@ -33,8 +47,9 @@ else:
 
 print(f"Generated date string: {date_str}")
 
-text_to_speech(date_str, manuscript, VOICE)
+if not SKIP_TTS:
+    text_to_speech(date_str, manuscript, VOICE)
 
-generate_subtitles(date_str)
+# generate_subtitles(date_str)
 
 render(date_str)

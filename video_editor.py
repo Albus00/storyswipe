@@ -1,12 +1,18 @@
+import os
+import time
 import random
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 from moviepy.video.tools.subtitles import SubtitlesClip
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.config import change_settings
-import os
+
+TEMP_CLIP_PATH = "./output/temp/clip.mp4"
 
 # Change this to the path of your ImageMagick installation (autodetection doesn't work)
 change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
+
+def subtitle_generator(txt, fontsize=50):
+    return TextClip(txt, font='Noto Sans Bold', fontsize=fontsize, color='white', method='caption', align='west', size=(500, None), stroke_color='black', stroke_width=2)
 
 def get_footage(date_str):
     def nr_of_clips(folder_path):
@@ -40,11 +46,12 @@ def get_footage(date_str):
     random_clip_length = VideoFileClip(f"./stock videos/{random_clip}").duration
     start_time, end_time = get_random_time(random_clip_length, get_speech_length())
 
-    # TODO: Resize video to phone aspect ratio
-    # .resize(width=1080/(16/9))
+    ffmpeg_extract_subclip(f"./stock videos/{random_clip}", start_time, end_time, targetname=TEMP_CLIP_PATH)
+    return VideoFileClip(TEMP_CLIP_PATH)
 
-    ffmpeg_extract_subclip(f"./stock videos/{random_clip}", start_time, end_time, targetname="./output/temp/clip.mp4")
-    return VideoFileClip("./output/temp/clip.mp4")
+def cleanup():
+    # Remove temporary files
+    os.remove(TEMP_CLIP_PATH)
 
 def render(date_str):
     # https://superuser.com/questions/874598/creating-video-containing-animated-text-using-ffmpeg-alone/874697#874697
@@ -55,7 +62,7 @@ def render(date_str):
     video_clip = video_clip.set_audio(audio)
 
     # Generate subtitles clip
-    generator = lambda txt: TextClip(txt, font='Noto Sans Bold', fontsize=50, color='white', method='caption', align='West', size=(500, None), stroke_color='black')
+    generator = lambda txt: subtitle_generator(txt)
     subtitles_clip = SubtitlesClip(f"./output/subtitles/sub_{date_str}.srt", generator).set_position(('center','center'))
     
     # Combine video and subtitles and render
@@ -63,5 +70,30 @@ def render(date_str):
     final_clip.duration = video_clip.duration
     final_clip.write_videofile(f"./output/final/final_{date_str}.mp4", codec='libx264', audio_codec='aac')
 
-# combine_sound_and_video('./stock videos/minecraft1.mp4', './speech.mp3', './output/final/tiktok.mp4')
-# add_subtitles('./stock videos/minecraft1.mp4', './speech.mp3', './output/final/tiktok.mp4')
+    cleanup()
+
+def split_video(date_str):
+    # Load the video clip
+    video_path = f"./output/final/final_{date_str}.mp4"
+    video = VideoFileClip(video_path)
+
+    # Get the duration of the video
+    duration = video.duration
+
+    # Calculate the duration of each part
+    nr_of_parts = 2
+    while (part_duration := duration / nr_of_parts) > 60:
+        nr_of_parts += 1
+    
+    print(f"Duration: {duration}, Part duration: {part_duration}")
+    
+    for i in range(nr_of_parts):
+        part = video.subclip(i * part_duration, (i + 1) * part_duration)
+        part_title_caption = subtitle_generator("Part " + str(i + 1))
+        # Overlay the generator clip on the part
+        part = CompositeVideoClip([part, part_title_caption.set_position(('center', 'bottom'))]) # TODO: Fix position and size
+        part.duration = part_duration
+        part.write_videofile(f"./output/parts/{date_str}_part{i+1}.mp4")
+
+    # Close the video clip
+    video.close()

@@ -13,6 +13,8 @@ def text_to_speech(date_str, manuscript, voice):
   speech_file_path = f"./output/speech/speech_{date_str}.mp3"
 
   print("Generating speech...")
+  if len(manuscript) > 4000:
+    raise ValueError("Manuscript is too long")
   response = client.audio.speech.create(
     model="tts-1",
     voice=voice,

@@ -163,3 +163,4 @@ cython_debug/
 
 output/
 stock videos/
+__pycache__/

@@ -35,12 +35,24 @@ def get_post(subreddit, listing):
   headers = authenticate()
 
   # Make a GET request to the Reddit API
-  res = requests.get(f'https://oauth.reddit.com/r/{subreddit}/{listing}/?limit=3', headers=headers)
+  res = requests.get(f'https://oauth.reddit.com/r/{subreddit}/{listing}/?limit=5', headers=headers)
 
-  # Extract the title and selftext of the third post
-  title = res.json()['data']['children'][2]['data']['title']
-  selftext = res.json()['data']['children'][2]['data']['selftext']
-  url = res.json()['data']['children'][2]['data']['url']
+  def extract_post_data(response, index=1):
+    if index > 4:
+      raise ValueError("No valid post found")
+
+    # Extract the title and selftext of the third post
+    title = response.json()['data']['children'][index]['data']['title']
+    selftext = response.json()['data']['children'][index]['data']['selftext']
+    url = response.json()['data']['children'][index]['data']['url']
+
+    if len(selftext) > 4000:
+      extract_post_data(response, index + 1)
+    
+    return title, selftext, url
+
+  # Call the function with the response object
+  title, selftext, url = extract_post_data(res)
 
   return title, selftext, url
 
