@@ -80,7 +80,7 @@ def find_silent_parts(date_str):
     speech = AudioSegment.from_file(f"./output/speech/speech_{date_str}.mp3", format="mp3")
     silent_segments = silence.detect_nonsilent(speech, min_silence_len=1000, silence_thresh=-40)
     # Convert to array
-    silent_segments = np.array(silent_segments)
+    silent_segments = np.array(silent_segments, dtype=np.float64)
     return silent_segments
 
 def split_video(date_str):
@@ -106,17 +106,21 @@ def split_video(date_str):
         # Find the silent part that is closest to the end of this part
         part_ending_time = prev_ending + part_duration * 1000   # Convert to milliseconds
         print(f"Part {i+1} ending time: {part_ending_time}")
+        # Find the index of the silent part that is closest to the ending time
         index = index = (np.abs(silent_sections - part_ending_time)).argmin()
         part_ending_time = silent_sections[index]
-        part_ending_time /= 1000    # Convert back to seconds
+        part_ending_time /= 1000.0    # Convert back to seconds
         print(f"Silent part found at: {part_ending_time}")
 
+        # Split the video at the silent part
         part = video.subclip(prev_ending, (i + 1) * part_duration)
+        
+        # Add a "Part x" caption to the video
         part_title_caption = subtitle_generator("Part " + str(i + 1))
-        # Overlay the generator clip on the part
         part = CompositeVideoClip([part, part_title_caption.set_position(('center', 'bottom'))]) # TODO: Fix position and size
         part.duration = part_duration
         part.write_videofile(f"./output/parts/{date_str}_part{i+1}.mp4")
+        prev_ending = part_ending_time
 
 
     # Close the video clip
