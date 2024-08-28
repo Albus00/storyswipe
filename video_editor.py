@@ -1,5 +1,4 @@
 import os
-import time
 import random
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip
 from moviepy.video.tools.subtitles import SubtitlesClip
@@ -13,8 +12,11 @@ TEMP_CLIP_PATH = "./output/temp/clip.mp4"
 # Change this to the path of your ImageMagick installation (autodetection doesn't work)
 change_settings({"IMAGEMAGICK_BINARY": r"C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
 
-def subtitle_generator(txt, fontsize=50):
-    return TextClip(txt, font='Noto Sans Bold', fontsize=fontsize, color='white', method='caption', align='west', size=(500, None), stroke_color='black', stroke_width=2)
+def subtitle_generator(text, type = ""):
+    if type == "part":
+        return TextClip(text, font='Noto Sans Bold', fontsize=100, color='white', method='caption', align='center', size=(500, 300), stroke_color='black', stroke_width=2)
+    
+    return TextClip(text, font='Noto Sans Bold', fontsize=50, color='white', method='caption', align='west', size=(500, None), stroke_color='black', stroke_width=2)
 
 def get_footage(date_str):
     def nr_of_clips(folder_path):
@@ -75,13 +77,19 @@ def render(date_str):
 
     cleanup(video_clip)
 
-def find_silent_parts(date_str):
+def get_silent_parts(date_str):
     print("Finding silent sections...")
     speech = AudioSegment.from_file(f"./output/speech/speech_{date_str}.mp3", format="mp3")
     silent_segments = silence.detect_nonsilent(speech, min_silence_len=1000, silence_thresh=-40)
-    # Convert to array
+    # Convert to array (make sure it's float64)
     silent_segments = np.array(silent_segments, dtype=np.float64)
-    return silent_segments
+    return silent_segments / 1000 # Convert to seconds
+
+def find_closest_silent_part(silent_sections, time):
+    for index, section in enumerate(silent_sections):
+        if (time < section[0] and time > section[1]) or time < section[0]:
+            return index - 1
+    return len(silent_sections) - 1
 
 def split_video(date_str):
     # Load the video clip
@@ -92,7 +100,7 @@ def split_video(date_str):
     duration = video.duration
 
     # Find where the silent parts are, to then make sure the video is split at those points
-    silent_sections = find_silent_parts(date_str) # TODO: fix error
+    silent_sections = get_silent_parts(date_str)
     print("Done")
 
     # Calculate the duration of each part
@@ -104,24 +112,23 @@ def split_video(date_str):
     prev_ending = 0
     for i in range(nr_of_parts):
         # Find the silent part that is closest to the end of this part
-        part_ending_time = prev_ending + part_duration * 1000   # Convert to milliseconds
+        part_ending_time = prev_ending + part_duration
         print(f"Part {i+1} ending time: {part_ending_time}")
         # Find the index of the silent part that is closest to the ending time
-        index = index = (np.abs(silent_sections - part_ending_time)).argmin()
-        part_ending_time = silent_sections[index]
-        part_ending_time /= 1000.0    # Convert back to seconds
+        index = find_closest_silent_part(silent_sections, part_ending_time)
+        part_ending_time = silent_sections[index][0]
         print(f"Silent part found at: {part_ending_time}")
 
         # Split the video at the silent part
-        part = video.subclip(prev_ending, (i + 1) * part_duration)
+        print(f"Splitting video at {prev_ending} and {part_ending_time}")
+        part = video.subclip(prev_ending, part_ending_time)
         
         # Add a "Part x" caption to the video
-        part_title_caption = subtitle_generator("Part " + str(i + 1))
+        part_title_caption = subtitle_generator(type="part", text="Part " + str(i + 1))
         part = CompositeVideoClip([part, part_title_caption.set_position(('center', 'bottom'))]) # TODO: Fix position and size
-        part.duration = part_duration
+        part.duration = part_ending_time - prev_ending
         part.write_videofile(f"./output/parts/{date_str}_part{i+1}.mp4")
         prev_ending = part_ending_time
-
 
     # Close the video clip
     video.close()

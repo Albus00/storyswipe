@@ -6,5 +6,8 @@
     "selftext",
     "subclip",
     "targetname"
+  ],
+  "python.analysis.extraPaths": [
+    "./TikTokUploader"
   ]
 }
