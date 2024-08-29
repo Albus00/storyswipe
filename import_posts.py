@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 import os
 import requests
 
+from telegram import send_telegram
+
 def authenticate():
   # Load environment variables from the .env file
   load_dotenv()
@@ -31,7 +33,25 @@ def authenticate():
 
   return headers
 
-def get_post(subreddit, listing):
+def get_post_from_url(url):
+  headers = authenticate()
+
+  # replace www.reddit.com with oauth.reddit.com
+  api_url = url.replace("www.reddit.com", "oauth.reddit.com")
+  # Make a GET request to the Reddit API
+  res = requests.get(api_url, headers=headers)
+
+  # Extract the title and selftext of the third post
+  title = res.json()[0]['data']['children'][0]['data']['title']
+  selftext = res.json()[0]['data']['children'][0]['data']['selftext']
+
+  if len(selftext) > 4000:
+    send_telegram("Post too long")
+    raise ValueError("Post too long")
+
+  return title, selftext, url
+
+def get_post_from_sub(subreddit, listing):
   headers = authenticate()
 
   # Make a GET request to the Reddit API
@@ -39,6 +59,7 @@ def get_post(subreddit, listing):
 
   def extract_post_data(response, index=1):
     if index > 4:
+      send_telegram("No valid post found")
       raise ValueError("No valid post found")
 
     # Extract the title and selftext of the third post
@@ -47,14 +68,12 @@ def get_post(subreddit, listing):
     url = response.json()['data']['children'][index]['data']['url']
 
     if len(selftext) > 4000:
-      extract_post_data(response, index + 1)
+      title, selftext, url = extract_post_data(response, index + 1)
     
     return title, selftext, url
 
   # Call the function with the response object
-  title, selftext, url = extract_post_data(res)
-
-  return title, selftext, url
+  return extract_post_data(res)
 
 def save_json(title, selftext):
   # Save the response as JSON

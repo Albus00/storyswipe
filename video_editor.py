@@ -132,5 +132,3 @@ def split_video(date_str):
 
     # Close the video clip
     video.close()
-
-split_video("2024-08-23(1)")
