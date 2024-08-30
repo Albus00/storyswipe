@@ -20,7 +20,14 @@
    ```bash
    cd tiktok-storyswipe
    ```
-3. Install the required dependencies:
+2. Create a virutal environment and activate it:
+   ```bash
+   python -m venv env
+   ```
+   ```bash
+   env\scripts\activate
+   ```
+4. Install the required dependencies:
    ```bash
    pip install -r requirements.txt
    ```
