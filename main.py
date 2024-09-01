@@ -2,12 +2,15 @@ import os
 import sys 
 import datetime
 import random
+
+# from faster_whisper import WhisperModel
 from import_posts import get_post_from_sub, get_post_from_url
 from filter_words import filter_swear_words, filer_shortening
 from generate_voice import text_to_speech
 from subtitle import generate_subtitles
+from subtitle_creator import srt_create
 from telegram import send_telegram
-from video_editor import render
+from video_editor import render, split_video
 
 FIXED_ID = 1
 SKIP_TTS = True
@@ -23,6 +26,7 @@ def setup():
     os.makedirs("./output/speech", exist_ok=True)
     os.makedirs("./output/temp", exist_ok=True)
     os.makedirs("./output/subtitles", exist_ok=True)
+    os.makedirs("./output/final", exist_ok=True)
     print("Setup complete")
 
 
@@ -60,6 +64,8 @@ print(f"Generated date string: {date_str}")
 if not SKIP_TTS:
     text_to_speech(date_str, manuscript, VOICE)
 
-# generate_subtitles(date_str)
+generate_subtitles(date_str)
 
 # render(date_str)
+
+split_video(date_str)
